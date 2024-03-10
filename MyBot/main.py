@@ -3,13 +3,12 @@ from telebot import types
 import requests
 from datetime import datetime, timedelta
 import pandas as pd
-import tempfile
 import yadisk
 
 y = yadisk.YaDisk(token="y0_AgAAAABNWZOrAAtrUQAAAAD9wo8DAACEP7UX46JHGKIS8dDwccA7sDbE7A")
 
 bot = telebot.TeleBot('7135590487:AAHv-sZ91-p1y9p9jsCn6vESSJ2wQfTP9Sg')
-accounts = []
+accounts = {}
 
 # Ключ API Timeweb
 TIMEWEB_API_KEY = 'your_timeweb_api_key'
@@ -82,37 +81,48 @@ def bot_message(message):
             try:
                 # Чтение файла Excel
                 file = pd.read_excel('Static/Numbers.xlsx')
+
                 # Извлечение номеров телефонов из первого столбца
                 phone_numbers = file.iloc[:, 0].astype(str).tolist()
+                accounts_data = file.iloc[:, 1].tolist()
+
                 # Добавление номеров телефонов в массив accounts
-                accounts.extend(phone_numbers)
+                for phone_number, account_data in zip(phone_numbers, accounts_data):
+                    accounts[phone_number] = account_data
                 bot.send_message(message.chat.id, 'Список номеров телефонов из локального файла:')
 
-                for phone_number in phone_numbers:
-                    bot.send_message(message.chat.id, phone_number)
+                # Вывод списка номеров телефонов и связанных аккаунтов
+                for phone_number, account_data in zip(phone_numbers, accounts_data):
+                    bot.send_message(message.chat.id, f'Номер телефона: {phone_number}, Аккаунт: {account_data}')
 
             except Exception as e:
                 bot.send_message(message.chat.id, f'Ошибка при открытии локального файла: {e}', reply_markup=markup)
 
 
-        elif message.text =='Открыть файл с номерами телефонов с Яндекс Диска':
-
+        elif message.text == 'Открыть файл с номерами телефонов с Яндекс Диска':
             markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
             back = types.KeyboardButton('Главное меню')
             markup.add(back)
             y.download("/numbers.xlsx", "yandex.xlsx")
             bot.send_message(message.chat.id, 'Меню работы с ссылкой чтения файла', reply_markup=markup)
+
             try:
                 # Чтение файла Excel
                 file = pd.read_excel('./yandex.xlsx')
+
                 # Извлечение номеров телефонов из первого столбца
                 phone_numbers = file.iloc[:, 0].astype(str).tolist()
-                # Добавление номеров телефонов в массив accounts
-                accounts.extend(phone_numbers)
+                accounts_data = file.iloc[:, 1].astype(str).tolist()  # Извлечение аккаунтов из второго столбца
+
+                # Добавление номеров телефонов и связанных аккаунтов в массив accounts
+                for phone_number, account_data in zip(phone_numbers, accounts_data):
+                    accounts[phone_number] = account_data
                 bot.send_message(message.chat.id, 'Список номеров полученный с Яндес Диска:')
 
-                for phone_number in phone_numbers:
-                    bot.send_message(message.chat.id, phone_number)
+                # Вывод списка номеров телефонов и связанных аккаунтов
+                for phone_number, account_data in zip(phone_numbers, accounts_data):
+                    bot.send_message(message.chat.id, f'Номер телефона: {phone_number}, Аккаунт: {account_data}')
+
 
             except Exception as e:
                 bot.send_message(message.chat.id, f'Ошибка при открытии файла с Яндекс Диска: {e}', reply_markup=markup)
@@ -124,11 +134,12 @@ def bot_message(message):
             back = types.KeyboardButton('Назад к работе с номерами телефонов')
             markup.add(back)
             bot.send_message(message.chat.id, 'Список всех номеров пользователей:', reply_markup=markup)
+
             # Проверяем, есть ли номера телефонов в списке
             if accounts:
-                # Отправляем каждый номер телефона как отдельное сообщение
-                for phone_number in accounts:
-                    bot.send_message(message.chat.id, phone_number)
+                # Отправляем каждый номер телефона и связанный с ним аккаунт как отдельное сообщение
+                for phone_number, account_data in accounts.items():
+                    bot.send_message(message.chat.id, f'Номер телефона: {phone_number}, Аккаунт: {account_data}')
             else:
                 bot.send_message(message.chat.id, 'Список номеров телефонов пуст.')
 
@@ -147,7 +158,7 @@ def bot_message(message):
             markup.add(back)
             bot.send_message(message.chat.id, 'Меню добавления номеров', reply_markup=markup)
             bot.send_message(message.chat.id, 'Введите номер телефона, который хотите добавить')
-            bot.register_next_step_handler(message, add_account)
+            bot.register_next_step_handler(message, get_phone_number)
 
         elif message.text =='Удалить номер телефона':
             markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -241,66 +252,38 @@ def bot_message(message):
             bot.send_message(message.chat.id, 'Меню работы с уведомлениями о сроках оплаты хостинга', reply_markup=markup)
 
 
-def open_url(message):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    back = types.KeyboardButton('Главное меню')
-    markup.add(back)
-    try:
-        url = message.text
-        response = requests.get(url)
-
-        if response.status_code == 200:
-            # Создание временного файла для сохранения содержимого
-            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                temp_file.write(response.content)
-                temp_file.close()
-
-                # Чтение файла Excel из временного файла
-                file = pd.read_excel(temp_file.name)
-
-            # Извлечение строк из первого столбца
-            phone_numbers = file.iloc[:, 0].astype(str).tolist()
-
-            # Вывод списка номеров телефонов
-            bot.send_message(message.chat.id, 'Список номеров телефонов из файла по ссылке:')
-            for phone_number in phone_numbers:
-                bot.send_message(message.chat.id, phone_number)
-        else:
-            bot.send_message(message.chat.id, 'Не удалось загрузить файл по указанной ссылке.')
-
-        bot.register_next_step_handler(message, start)
-    except Exception as e:
-        bot.send_message(message.chat.id, 'Ошибка при открытии файла по ссылке.', reply_markup=markup)
-
-
 
 def search_account(message):
     try:
         phone_number = message.text
-        found = False
-        for account_number in accounts:
-            if phone_number == account_number:
-                bot.send_message(message.chat.id, f'Пользователь с номером телефона {phone_number} найден.')
-                found = True
-                break
-        if not found:
+        if phone_number in accounts:
+            bot.send_message(message.chat.id, f'Пользователь с номером телефона {phone_number} найден. Аккаунт: {accounts[phone_number]}')
+        else:
             bot.send_message(message.chat.id, f'Пользователь с номером телефона {phone_number} не найден.')
         bot.register_next_step_handler(message, start)
     except Exception as e:
         bot.send_message(message.chat.id, 'Ошибка при поиске пользователя.')
 
 
-def add_account(message):
+def get_phone_number(message):
+    try:
+        phone_number = message.text
+        bot.send_message(message.chat.id, 'Введите аккаунт:')
+        bot.register_next_step_handler(message, add_account, phone_number)
+    except Exception as e:
+        bot.send_message(message.chat.id, 'Ошибка при получении номера телефона.')
+
+
+def add_account(message, phone_number):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     back = types.KeyboardButton('Главное меню')
     markup.add(back)
     try:
-        phone_number = message.text
-        accounts.append(phone_number)
-        bot.send_message(message.chat.id, f'Номер телефона {phone_number} успешно добавлен.')
+        account = message.text
+        accounts[phone_number] = account
+        bot.send_message(message.chat.id,f'Номер телефона {phone_number} и связанный с ним аккаунт {account} успешно добавлены.')
     except Exception as e:
-        bot.send_message(message.chat.id, 'Ошибка при добавлении номера телефона.', reply_markup=markup)
-
+        bot.send_message(message.chat.id, 'Ошибка при добавлении номера телефона и аккаунта.')
 
 def del_account(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -309,12 +292,12 @@ def del_account(message):
     try:
         phone_number = message.text
         if phone_number in accounts:
-            accounts.remove(phone_number)
-            bot.send_message(message.chat.id, f'Пользователь с номером телефона {phone_number} удален.')
+            del accounts[phone_number]
+            bot.send_message(message.chat.id, f'Пользователь с номером телефона {phone_number} успешно удален.')
         else:
             bot.send_message(message.chat.id, f'Пользователь с номером телефона {phone_number} не найден в списке.')
     except Exception as e:
-        bot.send_message(message.chat.id, 'Ошибка при удалении пользователя.', reply_markup=markup)
+        bot.send_message(message.chat.id, 'Ошибка при удалении пользователя.')
 
 def edit_account(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -324,26 +307,41 @@ def edit_account(message):
         old_phone_number = message.text
         if old_phone_number in accounts:
             bot.send_message(message.chat.id, f'Введите новый номер телефона для замены {old_phone_number}:')
-            bot.register_next_step_handler(message, lambda msg: update_account(msg, old_phone_number))
+            bot.register_next_step_handler(message, lambda msg: get_new_phone(msg, old_phone_number))
         else:
             bot.send_message(message.chat.id, f'Пользователь с номером телефона {old_phone_number} не найден в списке.')
     except Exception as e:
         bot.send_message(message.chat.id, 'Ошибка при редактировании номера телефона.', reply_markup=markup)
 
-def update_account(message, old_phone_number):
+def get_new_phone(message, old_phone_number):
+    try:
+        new_phone_number = message.text
+        bot.send_message(message.chat.id, f'Введите новый аккаунт для номера телефона {old_phone_number}:')
+        bot.register_next_step_handler(message, lambda msg: get_new_account(msg, old_phone_number, new_phone_number))
+    except Exception as e:
+        bot.send_message(message.chat.id, 'Ошибка при получении нового номера телефона.')
+
+def get_new_account(message, old_phone_number, new_phone_number):
+    try:
+        new_account = message.text
+        update_account(message, old_phone_number, new_phone_number, new_account)
+    except Exception as e:
+        bot.send_message(message.chat.id, 'Ошибка при получении нового аккаунта.')
+
+
+def update_account(message, old_phone_number, new_phone_number, new_account):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     back = types.KeyboardButton('Главное меню')
     markup.add(back)
     try:
-        new_phone_number = message.text
-        index = accounts.index(old_phone_number)
-        accounts[index] = new_phone_number
-        bot.send_message(message.chat.id, f'Номер телефона {old_phone_number} успешно заменен на {new_phone_number}.')
-    except ValueError:
-        bot.send_message(message.chat.id, f'Пользователь с номером телефона {old_phone_number} не найден в списке.')
+        if old_phone_number in accounts:
+            accounts[new_phone_number] = new_account  # Обновляем номер телефона и связанный аккаунт
+            del accounts[old_phone_number]  # Удаляем старую запись
+            bot.send_message(message.chat.id, f'Номер телефона {old_phone_number} успешно заменен на {new_phone_number} с аккаунтом {new_account}.')
+        else:
+            bot.send_message(message.chat.id, f'Пользователь с номером телефона {old_phone_number} не найден в списке.')
     except Exception as e:
         bot.send_message(message.chat.id, 'Ошибка при обновлении номера телефона.', reply_markup=markup)
-
 def add_telegramm(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     back = types.KeyboardButton('Главное меню')
@@ -367,7 +365,7 @@ def del_telegramm(message):
     markup.add(back)
     try:
         user_id = int(message.text)
-        # Ваша логика удаления пользователя из телеграм-канала
+        # Логика удаления пользователя из телеграм-канала
         # Например, используя библиотеку Telethon или pyTelegramBotAPI
         # Пример:
         # bot.remove_from_chat(user_id, 'название_телеграм_канала')
@@ -384,7 +382,7 @@ def add_monitoring(message):
     markup.add(back)
     try:
         user_id = int(message.text)
-        # Ваша логика добавления пользователя для мониторинга оплаты хостинга
+        # Логика добавления пользователя для мониторинга оплаты хостинга
         # Например, добавление пользователя в список для дальнейшего мониторинга
         bot.send_message(message.chat.id, f'Пользователь с ID {user_id} добавлен для мониторинга оплаты хостинга.')
     except ValueError:
@@ -399,7 +397,7 @@ def del_monitoring(message):
     markup.add(back)
     try:
         user_id = int(message.text)
-        # Ваша логика удаления пользователя из мониторинга оплаты хостинга
+        # Логика удаления пользователя из мониторинга оплаты хостинга
         # Например, удаление пользователя из списка мониторинга
         bot.send_message(message.chat.id, f'Пользователь с ID {user_id} удален из мониторинга оплаты хостинга.')
     except ValueError:

@@ -7,9 +7,9 @@ import schedule
 import time
 import threading
 
-y = yadisk.YaDisk(token="y0_AgAAAABNWZOrAAtrUQAAAAD9wo8DAACEP7UX46JHGKIS8dDwccA7sDbE7A")
+y = yadisk.YaDisk(token="Ваш_токен_яндекса")
 
-bot = telebot.TeleBot('7135590487:AAHv-sZ91-p1y9p9jsCn6vESSJ2wQfTP9Sg')
+bot = telebot.TeleBot('ID_Вашего_бота')
 accounts = {}
 monitored_users = {}
 
@@ -168,7 +168,7 @@ def show_days_until_payment(message):
 # Функция для вывода списка пользователей со скорой оплатой
 def display_users_with_pending_payments(message):
     # Проверяем, является ли отправитель сообщения менеджером (для примера - проверка по ID пользователя)
-    if message.from_user.id == 1195491333:
+    if message.from_user.id == ID_менеджера:
         users_to_notify = []
         # Проверяем каждого пользователя в аккаунтах
         for phone_number, account_list in accounts.items():

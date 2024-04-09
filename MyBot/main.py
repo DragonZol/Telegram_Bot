@@ -5,9 +5,9 @@ from datetime import datetime, timedelta
 import pandas as pd
 import yadisk
 
-y = yadisk.YaDisk(token="y0_AgAAAABNWZOrAAtrUQAAAAD9wo8DAACEP7UX46JHGKIS8dDwccA7sDbE7A")
+y = yadisk.YaDisk(token="Ваш_токен_яндекса")
 
-bot = telebot.TeleBot('7135590487:AAHv-sZ91-p1y9p9jsCn6vESSJ2wQfTP9Sg')
+bot = telebot.TeleBot('ID_Вашего_бота')
 accounts = {}
 monitored_users = {}
 
